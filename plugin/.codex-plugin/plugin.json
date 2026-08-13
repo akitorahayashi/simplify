@@ -1,6 +1,6 @@
 {
   "name": "simplify",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "変更された差分を再利用・単純化・効率・抽象度の4観点でレビューし、見つけた改善を適用する。",
   "skills": "./skills/",
   "author": {
