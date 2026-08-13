@@ -40,9 +40,10 @@ simplify/
 
 `plugin/skills/simplify/SKILL.md` が定義するワークフローは3段階です。
 
-1. レビュー対象の取得 — `git diff @{upstream}...HEAD` を基本とし、upstream が無い場合は
-   `main...HEAD` または `HEAD~1`。未コミットの変更があるか差分が空の場合は `git diff HEAD` も
-   含めます。引数で PR 番号、ブランチ名、ファイルパスが渡された場合はそれを対象にします。
+1. レビュー対象の取得 — PR の base、`origin/HEAD`、`main` の順でベースブランチを決め、
+   `git diff <base>...HEAD` を取得します。未コミットの変更があれば `git diff HEAD` も加え、
+   どちらも空なら `git diff HEAD~1` を見ます。引数で PR 番号、ブランチ名、ファイルパスが
+   渡された場合はそれを対象にします。
 2. 4観点のレビュー — 再利用、単純化、効率、抽象度。サブエージェントを起動できる環境では
    4観点を並列に実行し、できない環境では順に実行して、その旨を報告に明記します。
 3. 修正の適用 — 重複する指摘を統合し、残りを直します。意図された挙動を変える、レビュー範囲から
@@ -50,16 +51,18 @@ simplify/
 
 ## 呼び出しポリシー
 
-このスキルはユーザーの明示的な呼び出しでのみ起動し、モデルが自律的に読み込むことはありません。
-差分全体のレビューと修正適用を伴うため、起動の判断はユーザーが持ちます。
+このスキルはコードを直接書き換えるため、起動の判断はユーザーが持ちます。暗黙起動を止められる
+範囲はクライアントごとに異なります。
 
-- Claude Code — `SKILL.md` の `disable-model-invocation: true`
-- Codex — `plugin/skills/simplify/agents/openai.yaml` の `policy.allow_implicit_invocation: false`
-- Antigravity CLI — `plugin.json` が閉じたスキーマであり、スキル単位の呼び出しポリシーを宣言する
-  フィールドがないため、抑止は上記2クライアントで有効です。
+- Claude Code — `SKILL.md` の `disable-model-invocation: true` により、明示呼び出し専用です。
+- Codex — `plugin/skills/simplify/agents/openai.yaml` の
+  `policy.allow_implicit_invocation: false` により、明示呼び出し専用です。
+- Antigravity CLI — スキル単位で暗黙起動を止めるフィールドがなく、エージェントが `description` を
+  見てスキルを選ぶため、明示呼び出しは保証されません。SKILL.md 本文が、モデルの判断で起動した
+  場合は修正の適用前に承認を取ることを定めています。
 
-明示呼び出し専用のため、`description` はモデルの起動判断のための条件文ではなく、スキルを選ぶ
-ユーザーに向けた説明文です。
+`description` にはモデルの起動を促す条件文を置かず、スキルを選ぶユーザーに向けた説明だけを
+書いています。
 
 ## 各マニフェストの要件
 
@@ -116,3 +119,10 @@ claude plugin validate .
 claude plugin validate ./plugin
 agy plugin validate ./plugin
 ```
+
+## リリース
+
+Claude Code と Codex は、マニフェストの `version` をインストール済みプラグインの更新判定に
+使います。Git のコミットが進んでも `version` が据え置かれている間は更新として扱われないため、
+配布内容を変えたリリースでは `plugin/.claude-plugin/plugin.json` と
+`plugin/.codex-plugin/plugin.json` の `version` を同じ値に揃えて上げます。
