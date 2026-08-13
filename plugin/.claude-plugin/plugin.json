@@ -1,8 +1,8 @@
 {
-  "name": "example-plugin",
+  "name": "simplify",
   "version": "0.1.0",
-  "description": "Replace this with your plugin's description.",
+  "description": "変更された差分を再利用・単純化・効率・抽象度の4観点でレビューし、見つけた改善を適用する。",
   "author": {
-    "name": "your-name"
+    "name": "akitorahayashi"
   }
 }

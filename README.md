@@ -1,104 +1,118 @@
-# skills-plugin
+# simplify
 
-A minimal template for one GitHub-installable Agent Skills plugin marketplace.
-The repository root is the marketplace root for Claude Code and Codex, and the
-`plugin/` directory is the plugin root for Claude Code, Antigravity CLI, and
-Codex. One shared `plugin/skills/` directory supplies every client; each
-manifest carries only client-specific identity.
+変更されたコードの品質を上げる Agent Skill を配布するプラグインです。差分を再利用、
+単純化、効率、抽象度の4観点でレビューし、見つけた改善をその場でコードに適用します。
+正しさのバグ探索は扱いません。
 
-## Structure
+リポジトリのルートが Claude Code と Codex のマーケットプレースルート、`plugin/` が
+Claude Code、Antigravity CLI、Codex のプラグインルートです。ひとつの `plugin/skills/` を
+すべてのクライアントが共有し、各マニフェストはクライアント固有の識別情報だけを持ちます。
+
+## 構成
 
 ```text
-skills-plugin/
+simplify/
 ├── .claude-plugin/
-│   └── marketplace.json                # Claude Code marketplace manifest
+│   └── marketplace.json                # Claude Code マーケットプレースマニフェスト
 ├── .agents/
 │   └── plugins/
-│       └── marketplace.json            # Codex marketplace manifest
+│       └── marketplace.json            # Codex マーケットプレースマニフェスト
 ├── plugin/
 │   ├── skills/
-│   │   └── example-skill/
-│   │       └── SKILL.md                  # one directory per skill; name comes from SKILL.md frontmatter
+│   │   └── simplify/
+│   │       ├── SKILL.md                # スキル本体。名前は frontmatter の name が決める
+│   │       └── agents/
+│   │           └── openai.yaml         # Codex 側の呼び出しポリシー
 │   ├── .claude-plugin/
-│   │   └── plugin.json                   # Claude Code manifest
+│   │   └── plugin.json                 # Claude Code マニフェスト
 │   ├── .codex-plugin/
-│   │   └── plugin.json                   # Codex manifest
-│   └── plugin.json                       # Antigravity CLI manifest
+│   │   └── plugin.json                 # Codex マニフェスト
+│   └── plugin.json                     # Antigravity CLI マニフェスト
 └── README.md
 ```
 
-The marketplace manifests expose the plugin in this repository by pointing to
-`./plugin`. They are installation indexes only; the plugin body is not duplicated
-under a `plugins/` directory.
+マーケットプレースマニフェストは `./plugin` を指すインストール索引であり、プラグイン本体を
+`plugins/` 配下に複製しません。コンポーネントディレクトリ（`skills/`、および将来の `hooks/`、
+`agents/`、`commands/`、`.mcp.json`）はプラグインルートに置き、`.claude-plugin/` と
+`.codex-plugin/` には `plugin.json` だけを置きます。
 
-`plugin/skills/` is shared across all three clients. Each manifest carries only
-that client's identity; the skill body is never duplicated. Component files
-(`skills/`, and later `hooks/`, `agents/`, `commands/`, `.mcp.json`) live at the
-plugin root. Only `plugin.json` belongs inside `.claude-plugin/` and
-`.codex-plugin/`.
+## スキルの動作
 
-## What each manifest requires
+`plugin/skills/simplify/SKILL.md` が定義するワークフローは3段階です。
 
-- Claude Code — skills under `plugin/skills/` are auto-discovered, so
-  `.claude-plugin/plugin.json` needs no `skills` field. Metadata like `author`,
-  `homepage`, `repository`, `license`, and `keywords` is optional.
-- Codex — `.codex-plugin/plugin.json` declares `"skills": "./skills/"`.
-- Antigravity CLI — `plugin.json` is a closed schema: only `name` (required,
-  `^[a-zA-Z0-9-_]+$`) and `description` are valid. Skills are discovered from
-  `skills/`; do not add other fields.
+1. レビュー対象の取得 — `git diff @{upstream}...HEAD` を基本とし、upstream が無い場合は
+   `main...HEAD` または `HEAD~1`。未コミットの変更があるか差分が空の場合は `git diff HEAD` も
+   含めます。引数で PR 番号、ブランチ名、ファイルパスが渡された場合はそれを対象にします。
+2. 4観点のレビュー — 再利用、単純化、効率、抽象度。サブエージェントを起動できる環境では
+   4観点を並列に実行し、できない環境では順に実行して、その旨を報告に明記します。
+3. 修正の適用 — 重複する指摘を統合し、残りを直します。意図された挙動を変える、レビュー範囲から
+   大きく外れる、誤検知と判断した指摘はスキップし、スキップした事実を報告します。
 
-## Customize
+## 呼び出しポリシー
 
-1. Rename the repository to your plugin name.
-2. Rename `plugin/skills/example-skill/` to your skill's name and rewrite its
-   `SKILL.md`. The `name` frontmatter sets the invocation name; the
-   `description` frontmatter is the sentence the agent reads to decide when to
-   use the skill, so make it a specific trigger.
-3. Replace `example-plugin` with your plugin name (kebab-case) in the plugin
-   manifests and marketplace manifests. Replace `skills-plugin` with your
-   repository or marketplace name, and replace `your-name` in the Claude Code
-   and Codex manifests.
-4. Add more skills as sibling directories under `plugin/skills/`. Group related skills
-   in one plugin rather than splitting one plugin per skill.
-5. Validate before distributing:
+このスキルはユーザーの明示的な呼び出しでのみ起動し、モデルが自律的に読み込むことはありません。
+差分全体のレビューと修正適用を伴うため、起動の判断はユーザーが持ちます。
 
-   ```bash
-   claude plugin validate .
-   claude plugin validate ./plugin
-   agy plugin validate ./plugin
-   ```
+- Claude Code — `SKILL.md` の `disable-model-invocation: true`
+- Codex — `plugin/skills/simplify/agents/openai.yaml` の `policy.allow_implicit_invocation: false`
+- Antigravity CLI — `plugin.json` が閉じたスキーマであり、スキル単位の呼び出しポリシーを宣言する
+  フィールドがないため、抑止は上記2クライアントで有効です。
 
-## Install
+明示呼び出し専用のため、`description` はモデルの起動判断のための条件文ではなく、スキルを選ぶ
+ユーザーに向けた説明文です。
 
-The repository root is the marketplace root for GitHub distribution. Replace
-`owner/skills-plugin` with the published repository.
+## 各マニフェストの要件
+
+- Claude Code — `plugin/skills/` 配下のスキルは自動検出されるため、`.claude-plugin/plugin.json`
+  に `skills` フィールドは不要です。`author`、`homepage`、`repository`、`license`、`keywords` は
+  任意のメタデータです。
+- Codex — `.codex-plugin/plugin.json` が `"skills": "./skills/"` を宣言します。
+- Antigravity CLI — `plugin.json` は閉じたスキーマで、`name`（必須、`^[a-zA-Z0-9-_]+$`）と
+  `description` だけが有効です。スキルは `skills/` から検出されるため、他のフィールドは
+  追加しません。
+
+## インストール
+
+リポジトリのルートが GitHub 配布時のマーケットプレースルートです。
 
 ### Claude Code
 
-Claude Code installs the plugin from this repository's marketplace:
-
 ```bash
-claude plugin marketplace add owner/skills-plugin
-claude plugin install example-plugin@skills-plugin
+claude plugin marketplace add akitorahayashi/simplify
+claude plugin install simplify@simplify
 ```
 
-For local development, Claude Code can load the plugin root for the current
-session with `claude --plugin-dir ./plugin`.
+プラグインのスキルはプラグイン名で名前空間化されるため、呼び出し名は `/simplify:simplify` です。
+Claude Code に組み込まれている `/simplify` とは別物として共存します。
+
+ローカル開発では `claude --plugin-dir ./plugin` で現在のセッションにプラグインルートを
+読み込めます。
 
 ### Codex
 
-Codex installs the plugin from this repository's marketplace:
-
 ```bash
-codex plugin marketplace add owner/skills-plugin
-codex plugin add example-plugin@skills-plugin
+codex plugin marketplace add akitorahayashi/simplify
+codex plugin add simplify@simplify
 ```
+
+インストールまたは有効化の後、新しい Codex セッションからスキルが利用可能になります。呼び出しは
+`$simplify` です。
 
 ### Antigravity CLI
 
-Antigravity stages the plugin from the path that it receives. The `plugin/`
-directory holds both `plugin.json` and `skills/`.
+Antigravity は受け取ったパスからプラグインを取り込みます。`plugin/` に `plugin.json` と
+`skills/` の両方があります。
 
 ```bash
 agy plugin install ./plugin
+```
+
+## 検証
+
+配布前にマニフェストを検証します。
+
+```bash
+claude plugin validate .
+claude plugin validate ./plugin
+agy plugin validate ./plugin
 ```

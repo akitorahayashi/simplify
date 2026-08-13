@@ -1,11 +1,11 @@
 {
-  "name": "skills-plugin",
+  "name": "simplify",
   "interface": {
-    "displayName": "Skills Plugin"
+    "displayName": "Simplify"
   },
   "plugins": [
     {
-      "name": "example-plugin",
+      "name": "simplify",
       "source": {
         "source": "local",
         "path": "./plugin"
