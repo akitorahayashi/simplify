@@ -5,7 +5,7 @@
 正しさのバグ探索は扱いません。
 
 リポジトリのルートが Claude Code と Codex のマーケットプレースルート、`plugin/` が
-Claude Code、Antigravity CLI、Codex のプラグインルートです。ひとつの `plugin/skills/` を
+両クライアントのプラグインルートです。ひとつの `plugin/skills/` を
 すべてのクライアントが共有し、各マニフェストはクライアント固有の識別情報だけを持ちます。
 
 ## 構成
@@ -25,9 +25,8 @@ simplify/
 │   │           └── openai.yaml         # Codex 側の呼び出しポリシー
 │   ├── .claude-plugin/
 │   │   └── plugin.json                 # Claude Code マニフェスト
-│   ├── .codex-plugin/
-│   │   └── plugin.json                 # Codex マニフェスト
-│   └── plugin.json                     # Antigravity CLI マニフェスト
+│   └── .codex-plugin/
+│       └── plugin.json                 # Codex マニフェスト
 └── README.md
 ```
 
@@ -51,18 +50,15 @@ simplify/
 
 ## 呼び出しポリシー
 
-このスキルはコードを直接書き換えるため、起動の判断はユーザーが持ちます。暗黙起動を止められる
-範囲はクライアントごとに異なります。
+このスキルはコードを直接書き換えるため、起動の判断はユーザーが持ちます。どちらのクライアントでも
+明示呼び出し専用です。
 
 - Claude Code — `SKILL.md` の `disable-model-invocation: true` により、明示呼び出し専用です。
 - Codex — `plugin/skills/simplify/agents/openai.yaml` の
   `policy.allow_implicit_invocation: false` により、明示呼び出し専用です。
-- Antigravity CLI — スキル単位で暗黙起動を止めるフィールドがなく、エージェントが `description` を
-  見てスキルを選ぶため、明示呼び出しは保証されません。SKILL.md 本文が、モデルの判断で起動した
-  場合は修正の適用前に承認を取ることを定めています。
 
 `description` にはモデルの起動を促す条件文を置かず、スキルを選ぶユーザーに向けた説明だけを
-書いています。これは Antigravity CLI での暗黙選択を招きにくくする狙いも兼ねています。
+書いています。
 
 ## 各マニフェストの要件
 
@@ -70,9 +66,6 @@ simplify/
   に `skills` フィールドは不要です。`author`、`homepage`、`repository`、`license`、`keywords` は
   任意のメタデータです。
 - Codex — `.codex-plugin/plugin.json` が `"skills": "./skills/"` を宣言します。
-- Antigravity CLI — `plugin.json` は閉じたスキーマで、`name`（必須、`^[a-zA-Z0-9-_]+$`）と
-  `description` だけが有効です。スキルは `skills/` から検出されるため、他のフィールドは
-  追加しません。
 
 ## インストール
 
@@ -101,15 +94,6 @@ codex plugin add simplify@simplify
 インストールまたは有効化の後、新しい Codex セッションからスキルが利用可能になります。呼び出しは
 `$simplify` です。
 
-### Antigravity CLI
-
-Antigravity は受け取ったパスからプラグインを取り込みます。`plugin/` に `plugin.json` と
-`skills/` の両方があります。
-
-```bash
-agy plugin install ./plugin
-```
-
 ## 検証
 
 配布前にマニフェストを検証します。
@@ -117,7 +101,6 @@ agy plugin install ./plugin
 ```bash
 claude plugin validate .
 claude plugin validate ./plugin
-agy plugin validate ./plugin
 ```
 
 ## リリース
