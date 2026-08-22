@@ -1,2 +1,5 @@
+interface:
+  display_name: "Simplify code"
+  short_description: "Review and simplify changed code without changing behavior"
 policy:
   allow_implicit_invocation: false
